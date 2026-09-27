@@ -1,0 +1,35 @@
+trigger: none
+
+parameters:
+  - name: terraformAction
+    type: string
+    default: apply
+    values: [apply, destroy]
+  - name: environment
+    type: string
+    default: dev
+    values: [dev, prod]
+  - name: imageTag
+    displayName: 'Docker Image Tag (if no image leave default)'
+    type: string
+    default: '20250803.3'
+
+stages:
+- stage: KeyVault
+  displayName: 'Provision or Recover Key Vault'
+  jobs:
+    - template: templates/keyvault-job.yml
+      parameters:
+        terraformAction: ${{ parameters.terraformAction }}
+        environment: ${{ parameters.environment }}
+        imageTag: ${{ parameters.imageTag }}
+
+- stage: WebApp
+  displayName: 'Provision Web App'
+  dependsOn: KeyVault
+  jobs:
+    - template: templates/app-service-job.yml
+      parameters:
+        terraformAction: ${{ parameters.terraformAction }}
+        environment: ${{ parameters.environment }}
+        imageTag: ${{ parameters.imageTag }}

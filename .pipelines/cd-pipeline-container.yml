@@ -1,0 +1,63 @@
+resources:
+  pipelines:
+    - pipeline: dockerBuild
+      source: Docker-Build
+      project: Academy2025-FA-AlexandruPisculungeanu
+      trigger:
+        branches:
+          include:
+            - development
+            - main
+
+stages:
+  - stage: CheckBugs
+    condition: |
+      or(
+        eq(variables['Build.SourceBranchName'], 'development'),
+        eq(variables['Build.SourceBranchName'], 'main')
+      )
+    jobs:
+      - template: templates/check-bugs.yml
+
+
+  - stage: DeployDev
+    displayName: 'Deploy to DEV Web App'
+    dependsOn: CheckBugs
+    condition: |
+      and(
+        succeeded(),
+        or(
+          eq(variables['Build.SourceBranchName'], 'development'),
+          eq(variables['Build.SourceBranchName'], 'main')
+        )
+      )
+
+    jobs:
+      - job: DeployDevJob
+        steps:
+          - task: AzureWebAppContainer@1
+            displayName: 'Deploy Docker Image to Azure Web App (DEV)'
+            inputs:
+              azureSubscription: 'SVC-AzureDevops'
+              appName: 'myfinalappnodecont-dev'
+              containers: |
+                your-acr-name.azurecr.io/my-node-app:$(resources.pipeline.dockerBuild.runName)
+
+  - stage: DeployProd
+    displayName: 'Deploy to PROD Web App'
+    dependsOn: DeployDev
+    condition: |
+      and(
+        succeeded(),
+        eq(variables['Build.SourceBranchName'], 'main')
+      )
+    jobs:
+      - job: DeployProdJob
+        steps:
+          - task: AzureWebAppContainer@1
+            displayName: 'Deploy Docker Image to Azure Web App (PROD)'
+            inputs:
+              azureSubscription: 'SVC-AzureDevops'
+              appName: 'myfinalappnodecont'
+              containers: |
+                your-acr-name.azurecr.io/my-node-app:$(resources.pipeline.dockerBuild.runName)

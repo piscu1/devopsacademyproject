@@ -1,0 +1,5 @@
+environment                 = "prod"
+web_app_name                = "myfinalappnode"
+app_service_plan_name       = "myAppService-prod"
+web_app_cont_name           = "myfinalappnodecont"
+app_service_plan_cont_name  = "myAppServiceContainerized-prod"

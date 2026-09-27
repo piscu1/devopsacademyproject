@@ -1,0 +1,19 @@
+trigger: none
+
+resources:
+  pipelines:
+    - pipeline: ciPipeline
+      source: Tests-Build
+      trigger: none
+      project: Academy2025-FA-AlexandruPisculungeanu
+
+stages:
+  - stage: DeployDev
+    condition: |
+        succeeded()
+    jobs:
+      - template: templates/deploy-app-artifact.yml
+        parameters:
+          environment: 'dev'
+          appServiceName: 'myfinalappnode-dev'
+          keyVaultName: 'kv-finalprojectpiscu'

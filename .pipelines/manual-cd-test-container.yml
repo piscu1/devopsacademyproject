@@ -1,0 +1,22 @@
+trigger: none
+
+resources:
+  pipelines:
+    - pipeline: dockerBuild
+      source: Docker-Build
+      project: Academy2025-FA-AlexandruPisculungeanu
+      trigger: none
+
+stages:
+  - stage: DeployDev
+    displayName: 'Deploy to DEV Web App'
+    jobs:
+      - job: DeployDevJob
+        steps:
+          - task: AzureWebAppContainer@1
+            displayName: 'Deploy Docker Image to Azure Web App (DEV)'
+            inputs:
+              azureSubscription: 'SVC-AzureDevops'
+              appName: 'myfinalappnodecont-dev'
+              containers: |
+                your-acr-name.azurecr.io/my-node-app:$(resources.pipeline.dockerBuild.runName)

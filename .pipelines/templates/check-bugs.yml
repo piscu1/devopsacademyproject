@@ -1,0 +1,27 @@
+parameters: {}
+
+jobs:
+  - job: CheckBugs
+    pool:
+      vmImage: ubuntu-latest
+
+    steps:
+      - bash: |
+          echo "Checking for open bugs..."
+          response=$(az boards query \
+            --wiql "SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] = 'Bug' AND [System.State] <> 'Closed'" \
+            --organization "$(System.CollectionUri)" \
+            --project "$(System.TeamProject)" \
+            --output json)
+
+          bug_count=$(echo "$response" | jq '.workItems | length')
+          echo "Open bugs: $bug_count"
+          if [ "$bug_count" -gt 1 ]; then
+            echo "Too many open bugs. Aborting deployment."
+            exit 1
+          else
+            echo "Bug check passed."
+          fi
+        displayName: 'Check open bugs'
+        env:
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)

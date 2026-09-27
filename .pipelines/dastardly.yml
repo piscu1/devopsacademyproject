@@ -1,0 +1,28 @@
+trigger:
+  branches:
+    include:
+      - development
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  dastardlyTargetUrl: 'https://myfinalappnodecont-dev.azurewebsites.net'
+  dastardlyReportDir: '$(Build.ArtifactStagingDirectory)/dastardly'
+  dastardlyReportFile: '$(Build.ArtifactStagingDirectory)/dastardly/dastardly-report.xml'
+
+steps:
+  - script: |
+      echo "Creating directory for Dastardly report..."
+      mkdir -p "$(dastardlyReportDir)"
+    displayName: 'Create Report Directory'
+
+  - script: |
+      echo "Running Dastardly scan..."
+      docker run --rm \
+        --user root \
+        -v "$(dastardlyReportDir):/dastardly" \
+        -e BURP_START_URL=$(dastardlyTargetUrl) \
+        -e BURP_REPORT_FILE_PATH=/dastardly/dastardly-report.xml \
+        public.ecr.aws/portswigger/dastardly:latest
+    displayName: 'Run Dastardly Scan'

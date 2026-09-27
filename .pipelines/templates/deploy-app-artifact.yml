@@ -1,0 +1,23 @@
+parameters:
+  environment: ''
+  appServiceName: ''
+  keyVaultName: ''
+
+jobs:
+  - job: Deploy
+    displayName: Deploy to ${{ parameters.environment }}
+    pool:
+      vmImage: ubuntu-latest
+
+    steps:
+      - download: ciPipeline
+        artifact: drop
+
+      - task: AzureRmWebAppDeployment@4
+        displayName: 'Deploy to App Service'
+        inputs:
+          ConnectionType: 'AzureRM'
+          azureSubscription: 'SVC-AzureDevops'
+          appType: 'webApp'
+          WebAppName: ${{ parameters.appServiceName }}
+          packageForLinux: '$(Pipeline.Workspace)/ciPipeline/drop/**/*.zip'

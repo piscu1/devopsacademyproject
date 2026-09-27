@@ -1,0 +1,47 @@
+resources:
+  pipelines:
+    - pipeline: ciPipeline          
+      source: Tests-Build                 
+      trigger:
+        branches:
+          include:
+            - '*'   
+      project: Academy2025-FA-AlexandruPisculungeanu
+
+stages:
+  - stage: BuildAndPush
+    condition: |
+        or(succeeded(), eq(variables['resources.pipeline.ciPipeline.runReason'], 'Manual'))
+    jobs:
+      - job: DockerBuild
+        steps:
+          - task: Docker@2
+            displayName: 'Build & Push Docker Image to ACR'
+            inputs:
+              containerRegistry: 'SVC-ACR'                         
+              repository: 'my-node-app'                               
+              command: 'buildAndPush'
+              Dockerfile: 'Dockerfile'                             
+              buildContext: '.'                                    
+              tags: |
+                $(Build.BuildNumber)
+
+      - job: SnykScan
+        displayName: 'Snyk Docker Image Scan'
+        dependsOn: DockerBuild
+        steps:
+          - task: Docker@2
+            displayName: 'Docker Login to ACR'
+            inputs:
+              containerRegistry: 'SVC-ACR'
+              command: 'login'
+
+          - task: SnykSecurityScan@1
+            displayName: 'Scan Image with Snyk'
+            inputs:
+              serviceConnectionEndpoint: 'SVC-Snyk'
+              testType: 'container'
+              dockerImageName: 'your-acr-name.azurecr.io/my-node-app:$(Build.BuildNumber)'
+              dockerfilePath: 'Dockerfile'
+              monitorWhen: 'always'
+              failOnIssues: false

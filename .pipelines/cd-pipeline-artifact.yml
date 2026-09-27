@@ -1,0 +1,51 @@
+resources:
+  pipelines:
+    - pipeline: ciPipeline
+      source: Tests-Build
+      trigger:
+        branches:
+          include:
+            - development
+            - main
+      project: Academy2025-FA-AlexandruPisculungeanu
+
+stages:
+  - stage: CheckBugs
+    condition: |
+      or(
+        eq(variables['Build.SourceBranchName'], 'development'),
+        eq(variables['Build.SourceBranchName'], 'main')
+      )
+    jobs:
+      - template: templates/check-bugs.yml
+
+  - stage: DeployDev
+    dependsOn: CheckBugs
+    condition: |
+      and(
+        succeeded(),
+        or(
+          eq(variables['Build.SourceBranchName'], 'development'),
+          eq(variables['Build.SourceBranchName'], 'main')
+        )
+      )
+    jobs:
+      - template: templates/deploy-app-artifact.yml
+        parameters:
+          environment: 'dev'
+          appServiceName: 'myfinalappnode-dev'
+          keyVaultName: 'kv-finalprojectpiscu'
+
+  - stage: DeployProd
+    dependsOn: DeployDev
+    condition: |
+      and(
+        succeeded(),
+        eq(variables['Build.SourceBranchName'], 'main')
+      )
+    jobs:
+      - template: templates/deploy-app-artifact.yml
+        parameters:
+          environment: 'prod'
+          appServiceName: 'myfinalappnode'
+          keyVaultName: 'kv-finalprojectpiscu'

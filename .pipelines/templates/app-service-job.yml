@@ -1,0 +1,102 @@
+parameters:
+  - name: terraformAction
+    type: string
+  - name: environment
+    type: string
+  - name: imageTag
+    type: string
+
+jobs:
+- job: TerraformJob
+  displayName: 'Terraform'
+  steps:
+    - task: TerraformInstaller@1
+      displayName: 'Install Terraform'
+      inputs:
+        terraformVersion: 'latest'
+
+    - task: Bash@3
+      displayName: 'Append image tag to tfvars'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo 'container_image_name = "my-node-app:${{ parameters.imageTag }}"' >> infra/terraform.tfvars
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Init'
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+        backendServiceArm: 'SVC-AzureDevops'
+        backendAzureRmResourceGroupName: 'RG-alexandru-pisculungeanu'
+        backendAzureRmStorageAccountName: 'storageaccountpiscu'
+        backendAzureRmContainerName: 'tf-state'
+        backendAzureRmKey: 'pisculungeanu-${{ parameters.environment }}.tfstate'
+
+    - task: AzureKeyVault@2
+      name: FetchSecrets
+      condition: eq('${{ parameters.terraformAction }}', 'apply')
+      inputs:
+        azureSubscription: 'SVC-AzureDevops'
+        KeyVaultName: 'kv-finalprojectpiscu'
+        SecretsFilter: '*'
+        RunAsPreJob: false
+
+    - task: replacetokens@5
+      displayName: 'Replace tokens in server.js'
+      condition: eq('${{ parameters.terraformAction }}', 'apply')
+      inputs:
+        rootDirectory: '$(Build.SourcesDirectory)/infra'
+        targetFiles: 'terraform.tfvars'
+        encoding: 'auto'
+        tokenPattern: 'rm'
+        escapeType: 'none'
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Plan'
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+        commandOptions: '-target=module.app_service -var-file=environments/${{ parameters.environment}}.tfvars'
+        environmentServiceNameAzureRM: 'SVC-AzureDevops'
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Apply'
+      condition: eq('${{ parameters.terraformAction }}', 'apply')
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+        commandOptions: '-auto-approve -target=module.app_service -var-file=environments/${{ parameters.environment}}.tfvars'
+        environmentServiceNameAzureRM: 'SVC-AzureDevops'
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Plan for containerized'
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+        commandOptions: '-target=module.app_service_containerized -var-file=environments/${{ parameters.environment}}.tfvars'
+        environmentServiceNameAzureRM: 'SVC-AzureDevops'
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Apply for containerized'
+      condition: eq('${{ parameters.terraformAction }}', 'apply')
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+        commandOptions: '-auto-approve -target=module.app_service_containerized -var-file=environments/${{ parameters.environment}}.tfvars'
+        environmentServiceNameAzureRM: 'SVC-AzureDevops'
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Destroy'
+      condition: eq('${{ parameters.terraformAction }}', 'destroy')
+      inputs:
+        provider: 'azurerm'
+        command: 'destroy'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/infra'
+        commandOptions: '-auto-approve'
+        environmentServiceNameAzureRM: 'SVC-AzureDevops'
